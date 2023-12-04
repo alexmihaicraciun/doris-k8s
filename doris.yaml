@@ -1,0 +1,128 @@
+# This yaml have dorisCluster CRD all fields. The yaml only for reference how to config, not for deploy on kubernetes.
+apiVersion: doris.selectdb.com/v1
+kind: DorisCluster
+metadata:
+  annotations:
+    selectdb/doriscluster: doriscluster-sample
+  labels:
+    app.kubernetes.io/name: doriscluster
+    app.kubernetes.io/instance: doriscluster-sample
+    app.kubernetes.io/part-of: doris-operator
+  name: doriscluster-sample
+spec:
+  feSpec:
+    # electionNumber represents `FOLLOWER` number, replicas - electionNumber as `OBSERVER`
+    #electionNumber: 3
+    replicas: 1
+    image: selectdb/doris.fe-ubuntu:2.0.2
+    annotations:
+      selectdb/dorisclsuter.component: fe
+    service:
+      type: "NodePort"
+      #loadBalancerIP: "127.0.0.1"
+      servicePorts:
+      - nodePort: 32127
+        targetPort: 9030
+    requests:
+      cpu: 2
+      memory: 2Gi
+    limits:
+      cpu: 2
+      memory: 2Gi
+    envVars:
+    - name: "HOME"
+      value: "/opt/selectdb"
+    - name: HOST_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.hostIP
+    podLabels:
+      selectdb.app.classify: "classify-1"
+    persistentVolumes:
+    - mountPath: /opt/apache-doris/fe/doris-meta
+      name: fe-meta
+      persistentVolumeClaimSpec:
+        # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+        #storageClassName: openebs-jiva-csi-default
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+    systemInitialization:
+      command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
+  beSpec:
+    replicas: 3
+    image: selectdb/doris.be-ubuntu:2.0.2
+    annotations:
+      selectdb/dorisclsuter.component: be
+    service:
+      type: "NodePort"
+    requests:
+      cpu: 2
+      memory: 2Gi
+    limits:
+      cpu: 2
+      memory: 2Gi
+    envVars:
+    - name: "HOME"
+      value: "/opt/selectdb"
+    - name: HOST_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.hostIP
+    podLabels:
+      selectdb.app.classify: "classify-1"
+    persistentVolumes:
+    - mountPath: /opt/apache-doris/be/log
+      name: belog
+      persistentVolumeClaimSpec:
+        # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+        #storageClassName: openebs-jiva-csi-default
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+    systemInitialization:
+      command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
+  cnSpec:
+    replicas: 1
+    image: selectdb/doris.be-ubuntu:2.0.2
+    annotations:
+      selectdb/dorisclsuter.component: cn
+    service:
+      type: "NodePort"
+    requests:
+      cpu: 2
+      memory: 2Gi
+    limits:
+      cpu: 2
+      memory: 2Gi
+    envVars:
+    - name: "HOME"
+      value: "/opt/selectdb"
+    - name: HOST_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.hostIP
+    podLabels:
+      selectdb.app.classify: "classify-1"
+    systemInitialization:
+      command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
+    autoScalingPolicy:
+      version: v2
+      minReplicas: 1
+      maxReplicas: 4
+      # hpaPolicy response to horizontlaPodAutoscaler's HorizontalPodAutoscalerSpec
+      hpaPolicy:
+        metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            target:
+              type: Utilization
+              averageUtilization: 30
